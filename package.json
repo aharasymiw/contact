@@ -1,0 +1,36 @@
+{
+  "name": "contact-webrtc-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A WebRTC teaching lab built with Express 5, PostgreSQL 18, React 19, Tailwind CSS 4, and Vite.",
+  "type": "module",
+  "scripts": {
+    "dev": "node server/index.mjs",
+    "build": "vite build",
+    "start": "NODE_ENV=production node server/index.mjs",
+    "db:setup": "node scripts/setup-db.mjs",
+    "hooks:install": "git config core.hooksPath scripts/git-hooks",
+    "test": "vitest run",
+    "lint": "oxlint --deny-warnings server client tests scripts vite.config.mjs vitest.config.mjs",
+    "lint:fix": "oxlint --fix --deny-warnings server client tests scripts vite.config.mjs vitest.config.mjs",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check ."
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "4.2.2",
+    "express": "5.2.1",
+    "pg": "8.20.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "tailwindcss": "4.2.2",
+    "vite": "8.0.3"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.42.0",
+    "oxlint": "^1.57.0",
+    "vitest": "4.1.2"
+  },
+  "engines": {
+    "node": ">=24.14.1 <25"
+  }
+}

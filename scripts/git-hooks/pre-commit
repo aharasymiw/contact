@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if [ -z "${NVM_DIR:-}" ]; then
+  export NVM_DIR="$HOME/.nvm"
+fi
+
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+  # Git hooks do not always inherit the interactive shell setup, so load nvm
+  # directly before running project scripts that depend on the pinned Node version.
+  . "$NVM_DIR/nvm.sh"
+  nvm use --silent >/dev/null
+fi
+
+echo "pre-commit: lint"
+npm run lint
+
+echo "pre-commit: format check"
+npm run format:check
+
+echo "pre-commit: test"
+npm test
