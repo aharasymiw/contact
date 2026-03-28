@@ -5,14 +5,18 @@
   "description": "A WebRTC teaching lab built with Express 5, PostgreSQL 18, React 19, Tailwind CSS 4, and Vite.",
   "type": "module",
   "scripts": {
-    "dev": "node server/index.mjs",
+    "dev": "node server/index.ts",
     "build": "vite build",
-    "start": "NODE_ENV=production node server/index.mjs",
-    "db:setup": "node scripts/setup-db.mjs",
+    "start": "NODE_ENV=production node server/index.ts",
+    "db:setup": "node scripts/setup-db.ts",
     "hooks:install": "git config core.hooksPath scripts/git-hooks",
     "test": "vitest run",
-    "lint": "oxlint --deny-warnings server client tests scripts vite.config.mjs vitest.config.mjs",
-    "lint:fix": "oxlint --fix --deny-warnings server client tests scripts vite.config.mjs vitest.config.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --deny-warnings server client shared tests e2e scripts vite.config.ts vitest.config.ts playwright.config.ts",
+    "lint:fix": "oxlint --fix --deny-warnings server client shared tests e2e scripts vite.config.ts vitest.config.ts playwright.config.ts",
     "format": "oxfmt .",
     "format:check": "oxfmt --check ."
   },
@@ -23,11 +27,19 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "tailwindcss": "4.2.2",
-    "vite": "8.0.3"
+    "vite": "8.0.3",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.5.0",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "oxfmt": "^0.42.0",
     "oxlint": "^1.57.0",
+    "typescript": "^6.0.2",
     "vitest": "4.1.2"
   },
   "engines": {

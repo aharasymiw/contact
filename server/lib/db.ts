@@ -1,10 +1,11 @@
 import { Pool } from "pg";
+import type { PoolClient, QueryResult, QueryResultRow } from "pg";
 
-import { config } from "./config.mjs";
+import { config } from "./config.ts";
 
-let pool;
+let pool: Pool | undefined;
 
-function createPool() {
+function createPool(): Pool {
   return new Pool({
     host: config.database.host,
     port: config.database.port,
@@ -15,7 +16,7 @@ function createPool() {
   });
 }
 
-export function getPool() {
+export function getPool(): Pool {
   if (!pool) {
     pool = createPool();
   }
@@ -23,11 +24,14 @@ export function getPool() {
   return pool;
 }
 
-export async function query(text, params = []) {
-  return getPool().query(text, params);
+export async function query<Row extends QueryResultRow = QueryResultRow>(
+  text: string,
+  params: readonly unknown[] = [],
+): Promise<QueryResult<Row>> {
+  return getPool().query<Row>(text, params as unknown[]) as Promise<QueryResult<Row>>;
 }
 
-export async function withClient(work) {
+export async function withClient<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await getPool().connect();
 
   try {

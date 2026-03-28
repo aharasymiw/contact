@@ -8,7 +8,7 @@ function createMockResponse() {
 
 async function loadRealtimeModule() {
   vi.resetModules();
-  return import("../../../server/lib/realtime.mjs");
+  return import("../../../server/lib/realtime.ts");
 }
 
 describe("realtime", () => {

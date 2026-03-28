@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCookieHeader } from "../../../server/lib/cookies.mjs";
+import { parseCookieHeader } from "../../../server/lib/cookies.ts";
 
 describe("parseCookieHeader", () => {
   it("parseCookieHeader_EncodedCookieValues_DecodesAndReturnsMap", () => {

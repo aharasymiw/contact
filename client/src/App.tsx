@@ -1,15 +1,58 @@
 import React, { useState } from "react";
 
+import type { IncomingInvite, PresenceUser } from "../../shared/schemas.ts";
 import {
   callFlow,
   glossary,
   implementationSteps,
   protocolCards,
   stackTargets,
-} from "./lib/tutorialContent.js";
-import { usePeerLab } from "./lib/usePeerLab.js";
+} from "./lib/tutorialContent.ts";
+import { usePeerLab } from "./lib/usePeerLab.ts";
 
-function SectionTitle({ eyebrow, title, body }) {
+interface SectionTitleProps {
+  eyebrow: string;
+  title: string;
+  body: string;
+}
+
+interface LoginFormState {
+  username: string;
+  password: string;
+}
+
+interface RegisterFormState extends LoginFormState {
+  displayName: string;
+}
+
+interface AuthPanelProps {
+  busy: boolean;
+  onLogin: (credentials: LoginFormState) => void | Promise<void>;
+  onRegister: (credentials: RegisterFormState) => void | Promise<void>;
+}
+
+interface DeviceSelectorProps {
+  label: string;
+  options: MediaDeviceInfo[];
+  value: string;
+  onChange: (nextValue: string) => void;
+  disabled?: boolean;
+}
+
+interface UserCardProps {
+  user: PresenceUser;
+  disabled: boolean;
+  onCall: () => void;
+}
+
+interface InviteCardProps {
+  invite: IncomingInvite;
+  disabled: boolean;
+  onAccept: () => void;
+  onReject: () => void;
+}
+
+function SectionTitle({ eyebrow, title, body }: SectionTitleProps) {
   return (
     <div className="section-heading">
       <p className="eyebrow">{eyebrow}</p>
@@ -19,26 +62,26 @@ function SectionTitle({ eyebrow, title, body }) {
   );
 }
 
-function AuthPanel({ busy, onLogin, onRegister }) {
+function AuthPanel({ busy, onLogin, onRegister }: AuthPanelProps) {
   const [mode, setMode] = useState("login");
-  const [loginForm, setLoginForm] = useState({
+  const [loginForm, setLoginForm] = useState<LoginFormState>({
     username: "",
     password: "",
   });
-  const [registerForm, setRegisterForm] = useState({
+  const [registerForm, setRegisterForm] = useState<RegisterFormState>({
     username: "",
     displayName: "",
     password: "",
   });
 
-  function updateLogin(field, value) {
+  function updateLogin(field: keyof LoginFormState, value: string) {
     setLoginForm((current) => ({
       ...current,
       [field]: value,
     }));
   }
 
-  function updateRegister(field, value) {
+  function updateRegister(field: keyof RegisterFormState, value: string) {
     setRegisterForm((current) => ({
       ...current,
       [field]: value,
@@ -147,7 +190,7 @@ function AuthPanel({ busy, onLogin, onRegister }) {
   );
 }
 
-function DeviceSelector({ label, options, value, onChange, disabled }) {
+function DeviceSelector({ label, options, value, onChange, disabled }: DeviceSelectorProps) {
   return (
     <label className="device-control">
       <span>{label}</span>
@@ -166,7 +209,7 @@ function DeviceSelector({ label, options, value, onChange, disabled }) {
   );
 }
 
-function UserCard({ user, disabled, onCall }) {
+function UserCard({ user, disabled, onCall }: UserCardProps) {
   return (
     <article className="user-card">
       <div>
@@ -184,7 +227,7 @@ function UserCard({ user, disabled, onCall }) {
   );
 }
 
-function InviteCard({ invite, disabled, onAccept, onReject }) {
+function InviteCard({ invite, disabled, onAccept, onReject }: InviteCardProps) {
   return (
     <article className="invite-card">
       <div>

@@ -4,11 +4,11 @@ import { fileURLToPath } from "node:url";
 
 import pg from "pg";
 
-import { config } from "../server/lib/config.mjs";
+import { config } from "../server/lib/config.ts";
 
 const { Client } = pg;
 
-function escapeIdentifier(identifier) {
+function escapeIdentifier(identifier: string): string {
   return `"${String(identifier).replaceAll('"', '""')}"`;
 }
 
@@ -17,7 +17,7 @@ const currentDirectory = path.dirname(currentFile);
 const projectDirectory = path.resolve(currentDirectory, "..");
 const schemaPath = path.resolve(projectDirectory, "db/schema.sql");
 
-async function main() {
+export async function setupDatabase() {
   const schema = await fs.readFile(schemaPath, "utf8");
   const maintenanceClient = new Client({
     host: config.database.host,
@@ -40,7 +40,7 @@ async function main() {
       [config.database.database],
     );
 
-    if (databaseCheck.rowCount === 0) {
+    if ((databaseCheck.rowCount ?? 0) === 0) {
       await maintenanceClient.query(
         `create database ${escapeIdentifier(config.database.database)}`,
       );
@@ -71,8 +71,12 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error("Unable to prepare the PostgreSQL database.");
-  console.error(error.message);
-  process.exitCode = 1;
-});
+const isRunDirectly = process.argv[1] ? path.resolve(process.argv[1]) === currentFile : false;
+
+if (isRunDirectly) {
+  setupDatabase().catch((error: Error) => {
+    console.error("Unable to prepare the PostgreSQL database.");
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}

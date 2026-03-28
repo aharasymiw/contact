@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../server/lib/db.mjs", () => ({
+vi.mock("../../../server/lib/db.ts", () => ({
   query: vi.fn(),
 }));
 
-vi.mock("../../../server/lib/security.mjs", () => ({
+vi.mock("../../../server/lib/security.ts", () => ({
   createSessionToken: vi.fn(),
   hashPassword: vi.fn(),
   hashSessionToken: vi.fn(),
   verifyPassword: vi.fn(),
 }));
 
-import { config } from "../../../server/lib/config.mjs";
+import { config } from "../../../server/lib/config.ts";
 import {
   attachCurrentUser,
   clearSessionCookie,
@@ -21,14 +21,14 @@ import {
   requireUser,
   serializeUser,
   setSessionCookie,
-} from "../../../server/lib/auth.mjs";
-import { query } from "../../../server/lib/db.mjs";
+} from "../../../server/lib/auth.ts";
+import { query } from "../../../server/lib/db.ts";
 import {
   createSessionToken,
   hashPassword,
   hashSessionToken,
   verifyPassword,
-} from "../../../server/lib/security.mjs";
+} from "../../../server/lib/security.ts";
 
 function createMockResponse() {
   const response = {
@@ -41,6 +41,17 @@ function createMockResponse() {
   response.status.mockReturnValue(response);
 
   return response;
+}
+
+function createQueryResult(overrides = {}) {
+  return {
+    command: "SELECT",
+    rowCount: 0,
+    oid: 0,
+    fields: [],
+    rows: [],
+    ...overrides,
+  } as any;
 }
 
 describe("auth", () => {
@@ -76,7 +87,7 @@ describe("auth", () => {
     const rawToken = "session-token";
 
     // Act
-    setSessionCookie(response, rawToken);
+    setSessionCookie(response as any, rawToken);
 
     // Assert
     expect(response.cookie).toHaveBeenCalledWith(config.sessionCookieName, rawToken, {
@@ -93,7 +104,7 @@ describe("auth", () => {
     const response = createMockResponse();
 
     // Act
-    clearSessionCookie(response);
+    clearSessionCookie(response as any);
 
     // Assert
     expect(response.clearCookie).toHaveBeenCalledWith(config.sessionCookieName, {
@@ -117,7 +128,7 @@ describe("auth", () => {
     };
 
     // Act
-    requireUser(request, response, next);
+    requireUser(request as any, response as any, next);
 
     // Assert
     expect(response.status).toHaveBeenCalledWith(expectedStatusCode);
@@ -136,7 +147,7 @@ describe("auth", () => {
     const next = vi.fn();
 
     // Act
-    requireUser(request, response, next);
+    requireUser(request as any, response as any, next);
 
     // Assert
     expect(next).toHaveBeenCalledTimes(1);
@@ -219,10 +230,8 @@ describe("auth", () => {
     vi.mocked(query)
       .mockResolvedValueOnce({
         rows: [insertedUserRow],
-      })
-      .mockResolvedValueOnce({
-        rows: [],
-      });
+      } as any)
+      .mockResolvedValueOnce(createQueryResult());
 
     // Act
     const result = await registerAccount(validCredentials);
@@ -250,10 +259,7 @@ describe("auth", () => {
     const expectedMessage = "Incorrect username or password.";
     const expectedStatusCode = 401;
 
-    vi.mocked(query).mockResolvedValueOnce({
-      rowCount: 0,
-      rows: [],
-    });
+    vi.mocked(query).mockResolvedValueOnce(createQueryResult({ rowCount: 0 }));
 
     // Act
     const act = () => loginAccount(credentials);
@@ -281,10 +287,12 @@ describe("auth", () => {
     const expectedMessage = "Incorrect username or password.";
     const expectedStatusCode = 401;
 
-    vi.mocked(query).mockResolvedValueOnce({
-      rowCount: 1,
-      rows: [selectedUserRow],
-    });
+    vi.mocked(query).mockResolvedValueOnce(
+      createQueryResult({
+        rowCount: 1,
+        rows: [selectedUserRow],
+      }),
+    );
     vi.mocked(verifyPassword).mockResolvedValue(false);
 
     // Act
@@ -326,10 +334,8 @@ describe("auth", () => {
       .mockResolvedValueOnce({
         rowCount: 1,
         rows: [selectedUserRow],
-      })
-      .mockResolvedValueOnce({
-        rows: [],
-      });
+      } as any)
+      .mockResolvedValueOnce(createQueryResult());
     vi.mocked(verifyPassword).mockResolvedValue(true);
     vi.mocked(createSessionToken).mockReturnValue(expectedSessionToken);
     vi.mocked(hashSessionToken).mockReturnValue(expectedSessionTokenHash);
@@ -360,9 +366,7 @@ describe("auth", () => {
   it("logoutSession_SessionIdProvided_DeletesSession", async () => {
     // Arrange
     const sessionId = "session-1";
-    vi.mocked(query).mockResolvedValueOnce({
-      rows: [],
-    });
+    vi.mocked(query).mockResolvedValueOnce(createQueryResult());
 
     // Act
     await logoutSession(sessionId);
@@ -375,14 +379,14 @@ describe("auth", () => {
 
   it("attachCurrentUser_NoCookieHeader_CallsNextWithoutDatabaseQuery", async () => {
     // Arrange
-    const request = {
+    const request: any = {
       headers: {},
     };
     const response = createMockResponse();
     const next = vi.fn();
 
     // Act
-    await attachCurrentUser(request, response, next);
+    await attachCurrentUser(request as any, response as any, next);
 
     // Assert
     expect(request.currentUser).toBeNull();
@@ -395,7 +399,7 @@ describe("auth", () => {
     // Arrange
     const rawSessionToken = "raw-session-token";
     const hashedSessionToken = "hashed-session-token";
-    const request = {
+    const request: any = {
       headers: {
         cookie: `${config.sessionCookieName}=${rawSessionToken}`,
       },
@@ -404,13 +408,10 @@ describe("auth", () => {
     const next = vi.fn();
 
     vi.mocked(hashSessionToken).mockReturnValue(hashedSessionToken);
-    vi.mocked(query).mockResolvedValueOnce({
-      rowCount: 0,
-      rows: [],
-    });
+    vi.mocked(query).mockResolvedValueOnce(createQueryResult({ rowCount: 0 }));
 
     // Act
-    await attachCurrentUser(request, response, next);
+    await attachCurrentUser(request as any, response as any, next);
 
     // Assert
     expect(response.clearCookie).toHaveBeenCalledWith(
@@ -426,7 +427,7 @@ describe("auth", () => {
     // Arrange
     const rawSessionToken = "raw-session-token";
     const hashedSessionToken = "hashed-session-token";
-    const request = {
+    const request: any = {
       headers: {
         cookie: `${config.sessionCookieName}=${rawSessionToken}`,
       },
@@ -452,13 +453,11 @@ describe("auth", () => {
       .mockResolvedValueOnce({
         rowCount: 1,
         rows: [sessionRow],
-      })
-      .mockResolvedValueOnce({
-        rows: [],
-      });
+      } as any)
+      .mockResolvedValueOnce(createQueryResult());
 
     // Act
-    await attachCurrentUser(request, response, next);
+    await attachCurrentUser(request as any, response as any, next);
 
     // Assert
     expect(request.currentUser).toEqual(expectedUser);
@@ -473,7 +472,7 @@ describe("auth", () => {
     // Arrange
     const rawSessionToken = "raw-session-token";
     const hashedSessionToken = "hashed-session-token";
-    const request = {
+    const request: any = {
       headers: {
         cookie: `${config.sessionCookieName}=${rawSessionToken}`,
       },
@@ -486,7 +485,7 @@ describe("auth", () => {
     vi.mocked(query).mockRejectedValueOnce(expectedError);
 
     // Act
-    await attachCurrentUser(request, response, next);
+    await attachCurrentUser(request as any, response as any, next);
 
     // Assert
     expect(next).toHaveBeenCalledWith(expectedError);

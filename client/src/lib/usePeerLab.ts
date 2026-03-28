@@ -1,6 +1,19 @@
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { apiRequest } from "./api.js";
+import {
+  authenticatedSessionSchema,
+  bootstrapPayloadSchema,
+  callEndedEventPayloadSchema,
+  callInviteEventPayloadSchema,
+  callResponseEventPayloadSchema,
+  callSignalEventPayloadSchema,
+  connectedEventPayloadSchema,
+  inviteCallResponseSchema,
+  presenceUpdateEventPayloadSchema,
+  respondToCallResponseSchema,
+  usersPayloadSchema,
+} from "../../../shared/schemas.ts";
+import { apiRequest } from "./api.ts";
 
 function createTimelineEntry({ channel = "Guide", title, detail, code }) {
   return {
@@ -138,15 +151,15 @@ export function usePeerLab() {
 
   async function hydrateSession() {
     try {
-      const payload = await apiRequest("/api/bootstrap");
+      const payload = await apiRequest("/api/bootstrap", {}, bootstrapPayloadSchema);
       setSession({
         loading: false,
         authenticated: Boolean(payload.authenticated),
-        currentUser: payload.currentUser ?? null,
+        currentUser: payload.authenticated ? payload.currentUser : null,
       });
       setIceServers(payload.iceServers ?? []);
-      setUsers(payload.users ?? []);
-      setPendingInvites(payload.pendingInvites ?? []);
+      setUsers(payload.authenticated ? payload.users : []);
+      setPendingInvites(payload.authenticated ? payload.pendingInvites : []);
       setRequestError("");
 
       if (payload.authenticated) {
@@ -186,10 +199,14 @@ export function usePeerLab() {
     setRequestError("");
 
     try {
-      const payload = await apiRequest("/api/register", {
-        method: "POST",
-        body: credentials,
-      });
+      const payload = await apiRequest(
+        "/api/register",
+        {
+          method: "POST",
+          body: credentials,
+        },
+        authenticatedSessionSchema,
+      );
 
       applyAuthPayload(payload);
       appendTimeline({
@@ -211,10 +228,14 @@ export function usePeerLab() {
     setRequestError("");
 
     try {
-      const payload = await apiRequest("/api/login", {
-        method: "POST",
-        body: credentials,
-      });
+      const payload = await apiRequest(
+        "/api/login",
+        {
+          method: "POST",
+          body: credentials,
+        },
+        authenticatedSessionSchema,
+      );
 
       applyAuthPayload(payload);
       appendTimeline({
@@ -315,7 +336,7 @@ export function usePeerLab() {
     }
 
     try {
-      const payload = await apiRequest("/api/users");
+      const payload = await apiRequest("/api/users", {}, usersPayloadSchema);
       setUsers(payload.users ?? []);
     } catch (error) {
       setRequestError(error.message);
@@ -737,12 +758,16 @@ export function usePeerLab() {
     setRequestError("");
 
     try {
-      const payload = await apiRequest("/api/calls/invite", {
-        method: "POST",
-        body: {
-          calleeUserId: peerUserId,
+      const payload = await apiRequest(
+        "/api/calls/invite",
+        {
+          method: "POST",
+          body: {
+            calleeUserId: peerUserId,
+          },
         },
-      });
+        inviteCallResponseSchema,
+      );
 
       syncActiveCall({
         id: payload.call.id,
@@ -771,12 +796,16 @@ export function usePeerLab() {
 
     try {
       await ensurePeerConnection(invite.call, "callee", invite.fromUser);
-      const payload = await apiRequest(`/api/calls/${invite.call.id}/respond`, {
-        method: "POST",
-        body: {
-          accept: true,
+      const payload = await apiRequest(
+        `/api/calls/${invite.call.id}/respond`,
+        {
+          method: "POST",
+          body: {
+            accept: true,
+          },
         },
-      });
+        respondToCallResponseSchema,
+      );
 
       setPendingInvites((currentInvites) =>
         currentInvites.filter((currentInvite) => currentInvite.call.id !== invite.call.id),
@@ -812,12 +841,16 @@ export function usePeerLab() {
     setRequestError("");
 
     try {
-      await apiRequest(`/api/calls/${invite.call.id}/respond`, {
-        method: "POST",
-        body: {
-          accept: false,
+      await apiRequest(
+        `/api/calls/${invite.call.id}/respond`,
+        {
+          method: "POST",
+          body: {
+            accept: false,
+          },
         },
-      });
+        respondToCallResponseSchema,
+      );
 
       setPendingInvites((currentInvites) =>
         currentInvites.filter((currentInvite) => currentInvite.call.id !== invite.call.id),
@@ -924,7 +957,7 @@ export function usePeerLab() {
     setTransportStatus("connecting");
 
     source.addEventListener("connected", (event) => {
-      const payload = JSON.parse(event.data);
+      const payload = connectedEventPayloadSchema.parse(JSON.parse(event.data));
       setTransportStatus("connected");
       updatePresence(payload.onlineUserIds ?? []);
       setPendingInvites(payload.pendingInvites ?? []);
@@ -939,12 +972,12 @@ export function usePeerLab() {
     });
 
     source.addEventListener("presence-update", (event) => {
-      const payload = JSON.parse(event.data);
+      const payload = presenceUpdateEventPayloadSchema.parse(JSON.parse(event.data));
       updatePresence(payload.onlineUserIds ?? []);
     });
 
     source.addEventListener("call-invite", (event) => {
-      const payload = JSON.parse(event.data);
+      const payload = callInviteEventPayloadSchema.parse(JSON.parse(event.data));
       setPendingInvites((currentInvites) => [
         payload,
         ...currentInvites.filter((invite) => invite.call.id !== payload.call.id),
@@ -959,7 +992,7 @@ export function usePeerLab() {
     });
 
     source.addEventListener("call-response", async (event) => {
-      const payload = JSON.parse(event.data);
+      const payload = callResponseEventPayloadSchema.parse(JSON.parse(event.data));
 
       if (!payload.accepted) {
         appendTimeline({
@@ -988,7 +1021,7 @@ export function usePeerLab() {
     });
 
     source.addEventListener("call-signal", (event) => {
-      const payload = JSON.parse(event.data);
+      const payload = callSignalEventPayloadSchema.parse(JSON.parse(event.data));
 
       if (payload.kind === "offer") {
         handleOfferSignal(payload).catch((error) => {
@@ -1012,7 +1045,7 @@ export function usePeerLab() {
     });
 
     source.addEventListener("call-ended", async (event) => {
-      const payload = JSON.parse(event.data);
+      const payload = callEndedEventPayloadSchema.parse(JSON.parse(event.data));
 
       if (activeCallRef.current?.id !== payload.call.id) {
         return;

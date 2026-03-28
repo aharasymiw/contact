@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, apiRequest } from "../../../client/src/lib/api.js";
+import { ApiError, apiRequest } from "../../../client/src/lib/api.ts";
 
 describe("apiRequest", () => {
   const originalFetch = globalThis.fetch;
+  const fetchMock = vi.fn();
 
   beforeEach(() => {
-    globalThis.fetch = vi.fn();
+    fetchMock.mockReset();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
   });
 
   afterEach(() => {
@@ -23,7 +25,7 @@ describe("apiRequest", () => {
     const traceHeaderValue = "trace-123";
     const expectedPayload = { authenticated: true };
 
-    globalThis.fetch.mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
       json: vi.fn().mockResolvedValue(expectedPayload),
@@ -40,7 +42,7 @@ describe("apiRequest", () => {
 
     // Assert
     expect(result).toEqual(expectedPayload);
-    expect(globalThis.fetch).toHaveBeenCalledWith(requestPath, {
+    expect(fetchMock).toHaveBeenCalledWith(requestPath, {
       method: "POST",
       credentials: "same-origin",
       body: JSON.stringify(requestBody),
@@ -58,7 +60,7 @@ describe("apiRequest", () => {
     const requestBody = '{"already":"serialized"}';
     const expectedPayload = { ok: true };
 
-    globalThis.fetch.mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
       json: vi.fn().mockResolvedValue(expectedPayload),
@@ -71,7 +73,7 @@ describe("apiRequest", () => {
     });
 
     // Assert
-    expect(globalThis.fetch).toHaveBeenCalledWith(requestPath, {
+    expect(fetchMock).toHaveBeenCalledWith(requestPath, {
       method: "POST",
       credentials: "same-origin",
       body: requestBody,
@@ -87,7 +89,7 @@ describe("apiRequest", () => {
     const requestPath = "/api/logout";
     const expectedResult = null;
 
-    globalThis.fetch.mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: true,
       status: 204,
       json: vi.fn(),
@@ -111,7 +113,7 @@ describe("apiRequest", () => {
       error: errorMessage,
     };
 
-    globalThis.fetch.mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: false,
       status: expectedStatusCode,
       json: vi.fn().mockResolvedValue(expectedPayload),
@@ -135,7 +137,7 @@ describe("apiRequest", () => {
     const expectedStatusCode = 500;
     const expectedMessage = `Request to ${requestPath} failed.`;
 
-    globalThis.fetch.mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: false,
       status: expectedStatusCode,
       json: vi.fn().mockRejectedValue(new Error("invalid json")),

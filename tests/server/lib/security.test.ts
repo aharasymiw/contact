@@ -7,7 +7,7 @@ import {
   hashPassword,
   hashSessionToken,
   verifyPassword,
-} from "../../../server/lib/security.mjs";
+} from "../../../server/lib/security.ts";
 
 describe("security", () => {
   it("createSessionToken_DefaultCall_ReturnsBase64UrlToken", () => {

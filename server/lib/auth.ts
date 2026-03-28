@@ -1,32 +1,42 @@
-import { config } from "./config.mjs";
-import { parseCookieHeader } from "./cookies.mjs";
-import { query } from "./db.mjs";
-import { createSessionToken, hashPassword, hashSessionToken, verifyPassword } from "./security.mjs";
+import type { NextFunction, Request, Response } from "express";
 
-function normalizeUsername(value) {
+import type { User } from "../../shared/schemas.ts";
+import { config } from "./config.ts";
+import { parseCookieHeader } from "./cookies.ts";
+import { query } from "./db.ts";
+import { createSessionToken, hashPassword, hashSessionToken, verifyPassword } from "./security.ts";
+import {
+  createHttpError,
+  loginCredentialsSchema,
+  parseOrThrow,
+  registerCredentialsSchema,
+} from "./validation.ts";
+
+interface UserRow {
+  id: string;
+  username: string;
+  display_name: string;
+  created_at: string;
+}
+
+interface SessionLookupRow extends UserRow {
+  session_id: string;
+}
+
+interface PasswordUserRow extends UserRow {
+  password_hash: string;
+}
+
+export type AppRequest = Request & {
+  currentUser: User | null;
+  sessionId: string | null;
+};
+
+function normalizeUsername(value: string) {
   return value.trim().toLowerCase();
 }
 
-function validateCredentials({ username, displayName, password }) {
-  const normalizedUsername = normalizeUsername(username ?? "");
-  const trimmedDisplayName = (displayName ?? "").trim();
-
-  if (!/^[a-z0-9_]{3,24}$/.test(normalizedUsername)) {
-    return "Usernames must be 3-24 characters using lowercase letters, numbers, or underscores.";
-  }
-
-  if (!trimmedDisplayName || trimmedDisplayName.length > 48) {
-    return "Display names must be between 1 and 48 characters.";
-  }
-
-  if (typeof password !== "string" || password.length < 8 || password.length > 128) {
-    return "Passwords must be between 8 and 128 characters.";
-  }
-
-  return null;
-}
-
-export function serializeUser(row) {
+export function serializeUser(row: UserRow): User {
   return {
     id: row.id,
     username: row.username,
@@ -35,7 +45,7 @@ export function serializeUser(row) {
   };
 }
 
-export function setSessionCookie(response, rawToken) {
+export function setSessionCookie(response: Response, rawToken: string): void {
   response.cookie(config.sessionCookieName, rawToken, {
     httpOnly: true,
     sameSite: "lax",
@@ -45,7 +55,7 @@ export function setSessionCookie(response, rawToken) {
   });
 }
 
-export function clearSessionCookie(response) {
+export function clearSessionCookie(response: Response): void {
   response.clearCookie(config.sessionCookieName, {
     httpOnly: true,
     sameSite: "lax",
@@ -54,7 +64,7 @@ export function clearSessionCookie(response) {
   });
 }
 
-async function insertSession(userId) {
+async function insertSession(userId: string): Promise<string> {
   const rawToken = createSessionToken();
   const tokenHash = hashSessionToken(rawToken);
 
@@ -69,7 +79,11 @@ async function insertSession(userId) {
   return rawToken;
 }
 
-export async function attachCurrentUser(request, response, next) {
+export async function attachCurrentUser(
+  request: AppRequest,
+  response: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     request.currentUser = null;
     request.sessionId = null;
@@ -83,7 +97,7 @@ export async function attachCurrentUser(request, response, next) {
     }
 
     const tokenHash = hashSessionToken(rawSessionToken);
-    const result = await query(
+    const result = await query<SessionLookupRow>(
       `
         select
           user_sessions.id as session_id,
@@ -99,7 +113,7 @@ export async function attachCurrentUser(request, response, next) {
       [tokenHash],
     );
 
-    if (result.rowCount === 0) {
+    if ((result.rowCount ?? 0) === 0) {
       clearSessionCookie(response);
       next();
       return;
@@ -124,7 +138,7 @@ export async function attachCurrentUser(request, response, next) {
   }
 }
 
-export function requireUser(request, response, next) {
+export function requireUser(request: AppRequest, response: Response, next: NextFunction): void {
   if (!request.currentUser) {
     response.status(401).json({
       error: "You need to log in before using the live call lab.",
@@ -135,20 +149,21 @@ export function requireUser(request, response, next) {
   next();
 }
 
-export async function registerAccount({ username, displayName, password }) {
-  const validationError = validateCredentials({ username, displayName, password });
-
-  if (validationError) {
-    const error = new Error(validationError);
-    error.statusCode = 400;
-    throw error;
-  }
+export async function registerAccount(credentials: unknown): Promise<{
+  sessionToken: string;
+  user: User;
+}> {
+  const { username, displayName, password } = parseOrThrow(
+    registerCredentialsSchema,
+    credentials,
+    "The registration payload is invalid.",
+  );
 
   const normalizedUsername = normalizeUsername(username);
   const passwordHash = await hashPassword(password);
 
   try {
-    const result = await query(
+    const result = await query<UserRow>(
       `
         insert into app_users (username, display_name, password_hash)
         values ($1, $2, $3)
@@ -165,19 +180,27 @@ export async function registerAccount({ username, displayName, password }) {
       user: serializeUser(row),
     };
   } catch (error) {
-    if (error.code === "23505") {
-      const duplicateError = new Error("That username is already taken.");
-      duplicateError.statusCode = 409;
-      throw duplicateError;
+    const typedError = error as Error & { code?: string };
+
+    if (typedError.code === "23505") {
+      throw createHttpError("That username is already taken.", 409);
     }
 
     throw error;
   }
 }
 
-export async function loginAccount({ username, password }) {
+export async function loginAccount(credentials: unknown): Promise<{
+  sessionToken: string;
+  user: User;
+}> {
+  const { username, password } = parseOrThrow(
+    loginCredentialsSchema,
+    credentials,
+    "The login payload is invalid.",
+  );
   const normalizedUsername = normalizeUsername(username ?? "");
-  const result = await query(
+  const result = await query<PasswordUserRow>(
     `
       select id, username, display_name, created_at, password_hash
       from app_users
@@ -186,19 +209,15 @@ export async function loginAccount({ username, password }) {
     [normalizedUsername],
   );
 
-  if (result.rowCount === 0) {
-    const error = new Error("Incorrect username or password.");
-    error.statusCode = 401;
-    throw error;
+  if ((result.rowCount ?? 0) === 0) {
+    throw createHttpError("Incorrect username or password.", 401);
   }
 
   const [row] = result.rows;
   const isValid = await verifyPassword(password ?? "", row.password_hash);
 
   if (!isValid) {
-    const error = new Error("Incorrect username or password.");
-    error.statusCode = 401;
-    throw error;
+    throw createHttpError("Incorrect username or password.", 401);
   }
 
   const sessionToken = await insertSession(row.id);
@@ -209,7 +228,7 @@ export async function loginAccount({ username, password }) {
   };
 }
 
-export async function logoutSession(sessionId) {
+export async function logoutSession(sessionId: string | null): Promise<void> {
   if (!sessionId) {
     return;
   }

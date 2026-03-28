@@ -10,11 +10,6 @@ export default defineConfig({
   root: rootDirectory,
   appType: "spa",
   plugins: [tailwindcss()],
-  esbuild: {
-    jsx: "transform",
-    jsxFactory: "React.createElement",
-    jsxFragment: "React.Fragment",
-  },
   build: {
     outDir: path.resolve(rootDirectory, "../dist/client"),
     emptyOutDir: true,

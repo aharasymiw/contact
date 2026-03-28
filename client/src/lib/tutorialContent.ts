@@ -1,3 +1,17 @@
+export interface ProtocolCard {
+  eyebrow: string;
+  title: string;
+  summary: string;
+  bullets: string[];
+  snippet: string;
+}
+
+export interface ImplementationStep {
+  title: string;
+  detail: string;
+  snippet: string;
+}
+
 export const stackTargets = [
   "Node 24.14.1 LTS",
   "Express 5.2.1",
@@ -8,7 +22,7 @@ export const stackTargets = [
   "Vite 8.0.3",
 ];
 
-export const protocolCards = [
+export const protocolCards: ProtocolCard[] = [
   {
     eyebrow: "Stage 01",
     title: "Signaling Is Just Coordination",
@@ -59,7 +73,7 @@ export const protocolCards = [
   },
 ];
 
-export const implementationSteps = [
+export const implementationSteps: ImplementationStep[] = [
   {
     title: "Persist users and sessions in PostgreSQL",
     detail:
